@@ -1,0 +1,25 @@
+{
+	"name": "messy",
+  
+	"build": {
+	  "dockerfile": "../Dockerfile",
+	  "context": ".."
+	},
+  
+	"remoteUser": "node",
+  
+	"forwardPorts": [8081],
+  
+	"portsAttributes": {
+	  "8081": {
+		"label": "Expo Metro",
+		"onAutoForward": "notify"
+	  }
+	},
+  
+	"mounts": [
+	  "source=messy-node-modules,target=/workspaces/messy/messy-app/node_modules,type=volume"
+	],
+  
+	"postCreateCommand": "sudo chown -R node:node /workspaces/messy/messy-app/node_modules && cd /workspaces/messy/messy-app && npm ci"
+  }

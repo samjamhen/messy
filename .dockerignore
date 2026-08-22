@@ -1,0 +1,6 @@
+messy-app/node_modules
+messy-app/.expo
+messy-app/ios
+messy-app/android
+.git
+.DS_Store
