@@ -1,513 +1,209 @@
-# Messy App — Development Setup
+# Messy
 
-Messy is a React Native application built with Expo.
+Messy is a React Native application built with Expo SDK 57, React Native, and TypeScript. Development runs in a Docker Dev Container so macOS and Windows contributors share the same Node, npm, Expo, Java, and Android SDK environment.
 
-The development environment runs inside a Docker Dev Container so that
-developers on macOS and Windows use the same Node, npm, Expo, and Android
-development environment.
+## Repository layout
 
-## Architecture
+```text
+messy/
+├── .devcontainer/devcontainer.json  # VS Code Dev Container configuration
+├── .dockerignore
+├── Dockerfile                       # Node 24 development/build image
+├── Jenkinsfile                      # CI pipeline
+└── messy-app/
+    ├── app.json
+    ├── package.json
+    ├── package-lock.json
+    ├── tsconfig.json
+    └── src/
+```
 
-The development setup is:
+The application lives in `messy-app`. Run npm and Expo commands from that directory unless a command below says otherwise.
 
-Developer's computer
-│
-├── VS Code
-├── Docker Desktop
-├── Native simulator/emulator
-│
-└── Docker Dev Container
-    ├── Node.js
-    ├── npm
-    ├── Expo
-    ├── Metro Bundler
-    ├── Android SDK
-    └── Linux node_modules
-
-Metro runs inside Docker on port `8081`.
-
-Port `8081` is forwarded to the host machine through the Dev Container
-configuration.
-
----
-
-# 1. Prerequisites
-
-## All Developers
+## Prerequisites
 
 Install:
 
-### Git
+- [Git](https://git-scm.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [Visual Studio Code](https://code.visualstudio.com/)
+- The VS Code Dev Containers extension (`ms-vscode-remote.remote-containers`)
 
-https://git-scm.com/
+macOS developers also need Xcode to build or run the iOS app. Windows developers should install Android Studio and run the Android emulator on Windows; Xcode and the iOS Simulator are not available on Windows.
 
-Verify:
+## Development setup
 
-    git --version
+Clone and open the repository:
 
-### Docker Desktop
+```bash
+git clone https://github.com/samjamhen/messy.git
+cd messy
+code .
+```
 
-https://www.docker.com/products/docker-desktop/
+Make sure Docker Desktop is running. In VS Code, run **Dev Containers: Reopen in Container** from the Command Palette. The first build can take several minutes because the image installs Node 24, Java, npm dependencies, and Android SDK tools.
 
-Make sure Docker Desktop is running before opening the project in a
-Dev Container.
+The Dev Container:
 
-### Visual Studio Code
+- uses the `node` user;
+- installs dependencies with `npm ci`;
+- keeps Linux `node_modules` in a Docker volume; and
+- forwards Expo Metro on port `8081`.
 
-https://code.visualstudio.com/
+Do not copy macOS or Windows `node_modules` into the container.
 
-### VS Code Dev Containers Extension
-
-Install the Microsoft extension:
-
-    Dev Containers
-
-Extension ID:
-
-    ms-vscode-remote.remote-containers
-
----
-
-# 2. Clone the Repository
-
-Clone the repository:
-
-    git clone <repository-url>
-
-Move into the project:
-
-    cd messy
-
-Open it in VS Code:
-
-    code .
-
-The repository should look approximately like:
-
-    messy/
-    ├── .devcontainer/
-    │   └── devcontainer.json
-    ├── .dockerignore
-    ├── Dockerfile
-    └── messy-app/
-        ├── package.json
-        ├── package-lock.json
-        ├── src/
-        └── ...
-
----
-
-# 3. Start the Development Container
-
-Make sure Docker Desktop is running.
-
-In VS Code:
-
-1. Press `Cmd + Shift + P` on macOS or `Ctrl + Shift + P` on Windows.
-2. Search for:
-
-       Dev Containers: Reopen in Container
-
-3. Select it.
-4. Wait for Docker to build the development environment.
-
-The first build can take several minutes because the container installs
-Node dependencies, Java, and the Android SDK.
-
-After the container opens, the VS Code terminal should be running inside
-Linux.
-
-Verify:
-
-    node --version
-
-The project currently uses Node 20.
-
----
-
-# 4. Install Dependencies
-
-Dependencies should normally be installed automatically when the Dev
-Container is created.
-
-If necessary, run:
-
-    cd messy-app
-    npm install
-
-IMPORTANT:
-
-`node_modules` inside the Dev Container must contain Linux dependencies.
-
-Do not copy host macOS or Windows `node_modules` into the container.
-
-The Dev Container uses a Docker volume for `node_modules` to prevent
-platform-specific native packages from conflicting.
-
----
-
-# 5. Start Expo
+## Running Expo
 
 Inside the Dev Container:
 
-    cd messy-app
-    npx expo start
+```bash
+cd messy-app
+npm start
+```
 
-Expo will start Metro Bundler.
+Useful commands:
 
-Metro runs inside Docker on:
+```bash
+npm run android        # Native Android development build
+npm run ios            # Native iOS development build (macOS only)
+npm run web            # Web development server
+npm run lint           # Expo lint
+npx tsc --noEmit       # Type-check without emitting files
+npx expo start --clear # Start Metro with a cleared cache
+```
 
-    8081
+Metro runs inside Docker and is forwarded to the host at `http://localhost:8081`. Check connectivity from a host terminal with:
 
-The Dev Container forwards this port to the host computer.
+```bash
+curl http://localhost:8081
+```
 
-To verify Metro is reachable, open a terminal OUTSIDE the Dev Container
-and run:
+Docker cannot run Apple's iOS Simulator. On macOS, Xcode and the simulator run on the host while Metro runs in the Dev Container. The Android emulator should likewise run on the host. Normal JavaScript and TypeScript edits use Fast Refresh; rebuild the native app only after changing native dependencies or native configuration.
 
-    curl http://localhost:8081
+## Dependencies and rebuilds
 
-A response means the host computer can reach Metro inside Docker.
+Use the committed lockfile for reproducible installs:
 
----
+```bash
+cd messy-app
+npm ci
+```
 
-# macOS Setup
+Rebuild the Dev Container after changing `Dockerfile`, `.devcontainer/devcontainer.json`, or system packages. Re-run `npm ci` after dependency or lockfile changes.
 
-macOS developers can run both iOS and Android applications locally.
+TypeScript imports CSS on web. The declaration in `messy-app/src/types/styles.d.ts` allows both CSS modules and global CSS imports to pass strict type-checking.
 
-## 6A. Install Xcode
+## Environments
 
-Install Xcode from the Mac App Store.
+Expo exposes client-side configuration through variables prefixed with `EXPO_PUBLIC_`. For local development, create `messy-app/.env.local`:
 
-After installation, run:
+```dotenv
+EXPO_PUBLIC_ENVIRONMENT=development
+EXPO_PUBLIC_API_URL=http://localhost:3000
+```
 
-    sudo xcodebuild -runFirstLaunch
+Use it in application code as:
 
-Verify Xcode:
+```ts
+const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+```
 
-    xcodebuild -version
+`EXPO_PUBLIC_` values are embedded in the application bundle. Never store passwords, private keys, signing credentials, or server-side secrets in them. Local `.env*.local` files are ignored by Git.
 
-Verify that Apple's simulator tools are available:
+When EAS Build is introduced, use `development`, `preview`, and `production` profiles in `messy-app/eas.json`, with the corresponding EAS environment assigned explicitly to each profile. Use different iOS bundle identifiers and Android application IDs if development and production builds must be installed on one device simultaneously.
 
-    xcrun simctl list devices
+## Jenkins CI
 
-You should see available iPhone simulators.
+The root `Jenkinsfile` defines the current pipeline:
 
----
+1. Check Git and Docker availability.
+2. Run `npm ci` and `npx tsc --noEmit` inside `node:24-bookworm`.
+3. Build the repository Docker image as `messy-app:<Jenkins build number>`.
+4. Clean the Jenkins workspace after the run.
 
-## 7A. iOS Development Build
+Jenkins itself runs on the macOS host, while Node commands run in Docker. The Jenkins environment includes `/usr/local/bin` and `/opt/homebrew/bin` so the Homebrew service can find Docker.
 
-IMPORTANT:
+### Local Jenkins requirements
 
-Docker cannot run the iOS Simulator.
+- Jenkins LTS running at `http://localhost:8080`
+- Java 21
+- Docker Desktop running
+- Jenkins plugins: Pipeline, Git, GitHub, GitHub Branch Source, and Workspace Cleanup
 
-The iOS Simulator and Xcode run directly on macOS, while Expo/Metro runs
-inside Docker.
+The Jenkins job should be a **Multibranch Pipeline** with GitHub as its branch source and `Jenkinsfile` as its script path.
 
-The architecture is:
+### Pull requests and GitHub status checks
 
-    iOS Simulator
-          │
-          │ localhost:8081
-          ▼
-    macOS
-          │
-          │ forwarded port
-          ▼
-    Docker Dev Container
-          │
-          ▼
-    Metro Bundler
+A pull request will receive a Jenkins build only when all of the following are configured:
 
-The native iOS development build must be created using Xcode/macOS.
+1. The Multibranch Pipeline's GitHub source has pull-request discovery enabled under **Behaviors**.
+2. Jenkins scans the repository after the PR is opened, either through a GitHub webhook or a periodic branch-indexing trigger.
+3. Jenkins has authenticated GitHub credentials with permission to read the repository and write commit statuses/checks.
 
-Once a development build is installed in the simulator, it connects to
-Metro running through the forwarded port.
+Anonymous GitHub access can clone this public repository, but it has a small API quota and cannot publish a Jenkins result back to the PR. Add a GitHub App or fine-grained token to Jenkins, select it in the Multibranch Pipeline's GitHub branch source, and grant it repository metadata/content read access plus commit-status or checks write access.
 
-For native iOS changes, the development build may need to be rebuilt.
+For instant builds, GitHub must be able to reach Jenkins at a public HTTPS URL. Configure the repository webhook as:
 
-For normal JavaScript/TypeScript changes, rebuilding the native app is
-not required. Metro will update the running application.
+```text
+https://<jenkins-domain>/github-webhook/
+```
 
----
+A Jenkins instance available only at `localhost` cannot receive GitHub webhooks. For local use, enable **Scan Multibranch Pipeline Triggers → Periodically if not otherwise run**, or manually select **Scan Multibranch Pipeline Now**.
 
-## 8A. Start iOS Development
+Once Jenkins has published a successful status, add that status as a required check in the GitHub ruleset for `main`.
 
-1. Start Docker Desktop.
-2. Open the repository in VS Code.
-3. Reopen the project in the Dev Container.
-4. Inside the container run:
+## SonarQube (optional)
 
-       cd messy-app
-       npx expo start
+SonarQube is not currently part of the committed pipeline. To run a local evaluation server with persistent Docker volumes:
 
-5. Start the iOS Simulator on macOS.
-6. Open the Messy development build.
-7. Connect the development build to Metro.
+```bash
+docker volume create sonarqube_data
+docker volume create sonarqube_logs
+docker volume create sonarqube_extensions
 
-Normal React Native code changes should now appear through Metro/Fast
-Refresh.
+docker run -d \
+  --name sonarqube \
+  --restart unless-stopped \
+  -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true \
+  -p 9000:9000 \
+  -v sonarqube_data:/opt/sonarqube/data \
+  -v sonarqube_logs:/opt/sonarqube/logs \
+  -v sonarqube_extensions:/opt/sonarqube/extensions \
+  sonarqube:latest
+```
 
----
+Open `http://localhost:9000` and initially sign in with `admin` / `admin`. Create a `messy` project and token, store the token in Jenkins as a **Secret text** credential, and configure **Manage Jenkins → System → SonarQube servers** with `http://localhost:9000`.
 
-# Windows Setup
+Install the Jenkins **SonarQube Scanner** plugin and configure an automatically installed scanner named `SonarScanner` under **Manage Jenkins → Tools**. Before adding a scan stage, commit a root `sonar-project.properties` file defining `messy-app` as the source directory and excluding generated directories such as `node_modules`, `.expo`, `coverage`, `ios`, and `android`.
 
-Windows developers cannot run the iOS Simulator locally because Xcode
-and Apple's iOS Simulator require macOS.
+SonarQube Community Build should analyze only `main`; full pull-request and branch analysis requires a commercial SonarQube edition or SonarQube Cloud. Test coverage will remain unavailable until the project has a test runner that produces `messy-app/coverage/lcov.info`.
 
-Windows developers should use Android for local development.
+## Troubleshooting
 
-## 6B. Enable Virtualization
+### Jenkins cannot find Docker
 
-Hardware virtualization must be enabled for the Android Emulator.
+Confirm the `PATH` block remains in `Jenkinsfile` and Docker Desktop is running:
 
-On Windows, ensure virtualization is enabled in the BIOS/UEFI.
+```bash
+/usr/local/bin/docker --version
+```
 
-You can check:
+### GitHub indexing pauses for several minutes
 
-    Task Manager
-    → Performance
-    → CPU
-    → Virtualization: Enabled
+The branch source is using anonymous GitHub API access. Add authenticated GitHub credentials to the Multibranch Pipeline.
 
----
+### TypeScript cannot resolve CSS
 
-## 7B. Install Android Studio
+Confirm `messy-app/src/types/styles.d.ts` is present and included by `tsconfig.json`.
 
-Download Android Studio:
+### Metro cannot be reached
 
-https://developer.android.com/studio
+Run `npm start` inside `messy-app`, then verify port `8081` from the host. If it fails, check the Dev Container port forwarding configuration.
 
-Install:
+### Platform-specific native-module errors
 
-- Android Studio
-- Android Emulator
-- Android SDK
-- Android SDK Platform Tools
+Errors mentioning files such as `*.linux-arm64-gnu.node` usually mean `node_modules` came from the wrong operating system. Remove that installation and reinstall inside the Dev Container volume with `npm ci`.
 
-NOTE:
+### Large or slow Docker builds
 
-The Docker development environment already contains Android SDK tools,
-but the graphical Android Emulator should normally run directly on
-Windows rather than inside Docker.
-
----
-
-## 8B. Create an Android Virtual Device
-
-Open Android Studio.
-
-Go to:
-
-    Device Manager
-    → Create Device
-
-Choose a device, for example:
-
-    Pixel 9
-
-Install an appropriate Android system image and create the emulator.
-
-Start the emulator from Android Studio.
-
----
-
-## 9B. Start Android Development
-
-1. Start Docker Desktop.
-2. Start the Android Emulator.
-3. Open the repository in VS Code.
-4. Reopen the repository in the Dev Container.
-5. Inside the container run:
-
-       cd messy-app
-       npx expo start
-
-Metro will run inside Docker on port `8081`.
-
-The Android development build/emulator must be able to reach Metro
-through the host machine.
-
----
-
-# iOS Development on Windows
-
-Windows cannot:
-
-- Install Xcode
-- Run the iOS Simulator
-- Compile an iOS application locally with Xcode
-
-Windows developers can still work on the React Native codebase.
-
-Options for testing iOS include:
-
-1. Using a physical iPhone with an appropriate development build.
-2. Using Expo EAS Build to create iOS builds remotely.
-3. Using a Mac for native iOS development/testing.
-
----
-
-# Docker Configuration
-
-The Dev Container configuration is located at:
-
-    .devcontainer/devcontainer.json
-
-It is responsible for:
-
-- Building the Docker development environment
-- Mounting the source code
-- Forwarding Metro port `8081`
-- Creating Linux-specific `node_modules`
-
-Example:
-
-    {
-      "name": "Messy",
-      "build": {
-        "context": "..",
-        "dockerfile": "../Dockerfile"
-      },
-      "forwardPorts": [8081],
-      "mounts": [
-        "source=messy-node-modules,target=/workspaces/messy/messy-app/node_modules,type=volume"
-      ],
-      "postCreateCommand": "cd /workspaces/messy/messy-app && npm install"
-    }
-
----
-
-# Dockerignore
-
-`.dockerignore` prevents unnecessary files from being copied into the
-Docker build context.
-
-It should contain:
-
-    messy-app/node_modules
-    messy-app/.expo
-    messy-app/ios
-    messy-app/android
-    .git
-    .DS_Store
-
-This is important because `node_modules` can be several gigabytes and
-dramatically slow down Docker builds.
-
----
-
-# Common Commands
-
-Start Expo:
-
-    cd messy-app
-    npx expo start
-
-Clear the Metro cache:
-
-    npx expo start --clear
-
-Check Node:
-
-    node --version
-
-Check npm:
-
-    npm --version
-
-Check Android Debug Bridge:
-
-    adb --version
-
-Check Metro from the host:
-
-    curl http://localhost:8081
-
-Stop Expo:
-
-    Ctrl + C
-
----
-
-# When Do I Need to Rebuild?
-
-## You DO NOT need to rebuild the Docker container when:
-
-- Editing React components
-- Editing TypeScript/JavaScript
-- Changing styles
-- Adding screens
-- Changing application logic
-
-Metro handles these changes.
-
-## Rebuild the Dev Container when:
-
-- The Dockerfile changes
-- `.devcontainer/devcontainer.json` changes
-- System-level Linux dependencies change
-
-Use:
-
-    Dev Containers: Rebuild and Reopen in Container
-
-## Reinstall npm dependencies when:
-
-`package.json` or `package-lock.json` changes.
-
-Run:
-
-    npm install
-
-## Rebuild the native iOS/Android app when:
-
-- Adding/changing native dependencies
-- Changing native configuration
-- Changing native iOS/Android code
-
-Normal React Native JavaScript/TypeScript changes do not require a
-native rebuild.
-
----
-
-# Troubleshooting
-
-## Metro cannot be reached
-
-Check that Expo is running:
-
-    npx expo start
-
-Then, from the HOST computer:
-
-    curl http://localhost:8081
-
-If this fails, check that port `8081` is forwarded by the Dev Container.
-
-## Native Node module errors
-
-Errors mentioning files such as:
-
-    *.linux-arm64-gnu.node
-
-usually indicate a platform-specific `node_modules` problem.
-
-Make sure dependencies are installed inside the Docker container and
-that the Docker `node_modules` volume is being used.
-
-## Docker build is extremely large
-
-Check that the file is named exactly:
-
-    .dockerignore
-
-not:
-
-    .dockerignoore
-
-and make sure `messy-app/node_modules` is ignored.
-
-## iOS Simulator is unavailable on Windows
-
-This is expected. Apple's iOS Simulator requires macOS and Xcode.
-Use Android locally or use a remote iOS build/testing workflow.
+Confirm `.dockerignore` excludes `messy-app/node_modules`, `messy-app/.expo`, generated native folders, `.git`, and `.DS_Store`.
