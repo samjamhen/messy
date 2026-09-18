@@ -1,2 +1,5 @@
 .DS_Store
 messy-app-git-history-backup/
+.neon
+.env.local
+node_modules/

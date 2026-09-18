@@ -100,6 +100,7 @@ Expo exposes client-side configuration through variables prefixed with `EXPO_PUB
 ```dotenv
 EXPO_PUBLIC_ENVIRONMENT=development
 EXPO_PUBLIC_API_URL=http://localhost:3000
+EXPO_PUBLIC_REVIEW_API_URL=http://localhost:3000
 ```
 
 Use it in application code as:
@@ -108,9 +109,46 @@ Use it in application code as:
 const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 ```
 
+The separate `messy-review-api` repository provides the review service. Start it using
+its README, then call `reviewsApi` from `messy-app/src/services/reviews.ts` to list,
+create, edit, or delete reviews. Writes require a signed access token from your
+authentication provider; user sign-in and review screens are not implemented yet.
+For Android Emulator, use `http://10.0.2.2:3000` as the review API URL. For a physical
+device, use the API computer's LAN IP; for deployment, use the hosted HTTPS API URL.
+Restart Metro after changing the environment file. PostgreSQL connection strings
+belong exclusively in the review service's environment.
+
 `EXPO_PUBLIC_` values are embedded in the application bundle. Never store passwords, private keys, signing credentials, or server-side secrets in them. Local `.env*.local` files are ignored by Git.
 
 When EAS Build is introduced, use `development`, `preview`, and `production` profiles in `messy-app/eas.json`, with the corresponding EAS environment assigned explicitly to each profile. Use different iOS bundle identifiers and Android application IDs if development and production builds must be installed on one device simultaneously.
+
+## Shared development database
+
+The Neon project `solitary-dew-62286571` has a hosted `development` branch
+(`br-holy-shape-a55yvoko`) for shared review development. The separate
+`messy-review-api` service uses this branch through its private `.env` file.
+The root workspace's Neon link remains on `production`; do not use the root
+`.env.local` database URLs for development.
+
+Collaborators should obtain access to this Neon project from the owner, select
+the **development** branch in the Neon connection dialog, and configure their
+local `messy-review-api/.env`:
+
+- `DATABASE_URL`: pooled connection URL with `schema=reviews` added.
+- `DIRECT_URL`: direct connection URL with `schema=reviews` added, for migrations.
+
+Preserve the connection URLs' SSL parameters. Share credentials through a
+password manager, never Git or `EXPO_PUBLIC_` variables. Prefer individual
+database logins scoped to the review schema. The project owner should coordinate
+shared migration runs; developers create new migrations against their own local
+database, then commit them for a designated maintainer to apply with `npm run db:deploy`.
+
+Run `nvm use`, `npm ci`, `npm run db:generate`, and `npm run dev` in
+`messy-review-api`. Configure the local JWT settings as described in that
+repository's README. Docker is not required when running the API this way against
+Neon. The Compose API profile explicitly uses local PostgreSQL instead.
+Check `http://localhost:3000/ready` after startup. Everyone connected to the shared
+branch sees the same reviews; local Docker data is not copied to Neon.
 
 ## Jenkins CI
 
