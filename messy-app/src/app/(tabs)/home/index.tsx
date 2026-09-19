@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import { useFocusEffect } from 'expo-router';
+import SignIn from '@/components/sign-in';
+import { getSession, subscribeSession } from '@/services/session';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
@@ -7,6 +10,7 @@ import { reviewsApi, type Review } from '@/services/reviews';
 
 export default function HomeScreen() {
   const colors = useTheme();
+  const session = useSyncExternalStore(subscribeSession, getSession, () => null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -15,6 +19,7 @@ export default function HomeScreen() {
     const request = ++latest.current;
     setLoading(true);
     setError(false);
+    if (!session) setReviews([]);
     try {
       const result = await reviewsApi.list();
       if (request === latest.current) setReviews(result.items);
@@ -23,11 +28,11 @@ export default function HomeScreen() {
     } finally {
       if (request === latest.current) setLoading(false);
     }
-  }, []);
-  useEffect(() => {
+  }, [session]);
+  useFocusEffect(useCallback(() => {
     void load();
     return () => { latest.current++; };
-  }, [load]);
+  }, [load]));
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.background }}>
@@ -47,6 +52,7 @@ export default function HomeScreen() {
               </Pressable>
             </View>
             <ThemedText themeColor="textSecondary">See what people are saying.</ThemedText>
+            <SignIn />
             {error && (
               <View accessibilityRole="alert" style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
                 <ThemedText>Couldn't load reviews. Please try again.</ThemedText>
@@ -66,7 +72,7 @@ export default function HomeScreen() {
         renderItem={({ item }) => (
           <View style={[styles.card, { backgroundColor: colors.backgroundElement }]}>
             <View style={styles.row}>
-              <ThemedText type="smallBold" style={styles.subject}>{item.subjectId}</ThemedText>
+              <ThemedText type="smallBold" style={styles.subject}>{item.restaurantName ?? item.subjectId}</ThemedText>
               <ThemedText accessibilityLabel={`${item.rating} out of 5 stars`}>{'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}</ThemedText>
             </View>
             <ThemedText>{item.body}</ThemedText>
