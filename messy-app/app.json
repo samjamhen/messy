@@ -38,6 +38,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "951aed3a-a8ba-4611-9022-64bb0caa6f3d"
+      }
+    },
+    "owner": "messyappadmins-team"
   }
 }

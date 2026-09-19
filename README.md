@@ -120,35 +120,34 @@ belong exclusively in the review service's environment.
 
 `EXPO_PUBLIC_` values are embedded in the application bundle. Never store passwords, private keys, signing credentials, or server-side secrets in them. Local `.env*.local` files are ignored by Git.
 
-When EAS Build is introduced, use `development`, `preview`, and `production` profiles in `messy-app/eas.json`, with the corresponding EAS environment assigned explicitly to each profile. Use different iOS bundle identifiers and Android application IDs if development and production builds must be installed on one device simultaneously.
+The app is linked to the `messyappadmins-team/messy-app` EAS project. Build profiles in `messy-app/eas.json` select the corresponding `development`, `preview`, and `production` environments; `preview-simulator` extends preview for the iOS simulator. Set `EXPO_PUBLIC_REVIEW_API_URL` to the appropriate backend HTTPS URL in each EAS environment before building. These profiles do not automatically deploy on Git merges.
 
-## Shared development database
+For local testing on a phone, run `npm run start:go` from `messy-app`, connect the phone and computer to the same Wi-Fi, and open the QR code in Expo Go. An installable EAS preview for a physical iPhone requires Apple Developer membership and device registration. Use different iOS bundle identifiers and Android application IDs if development and production builds must be installed on one device simultaneously.
 
-The Neon project `solitary-dew-62286571` has a hosted `development` branch
-(`br-holy-shape-a55yvoko`) for shared review development. The separate
-`messy-review-api` service uses this branch through its private `.env` file.
-The root workspace's Neon link remains on `production`; do not use the root
-`.env.local` database URLs for development.
+## Shared backend and development database
 
-Collaborators should obtain access to this Neon project from the owner, select
-the **development** branch in the Neon connection dialog, and configure their
-local `messy-review-api/.env`:
+The sibling `messy-review-api` repository is now the **Messy Backend** monorepo.
+It contains a gateway (port 3000), users (3001), restaurants (3002), and reviews
+(3003), each with its own Dockerfile and independent runtime. Start all services
+there with `nvm use`, `npm ci`, `npm run db:generate`, `npm run build`, then
+`npm run dev`; or use `docker compose up --build -d`.
 
-- `DATABASE_URL`: pooled connection URL with `schema=reviews` added.
-- `DIRECT_URL`: direct connection URL with `schema=reviews` added, for migrations.
+The Expo app's `EXPO_PUBLIC_REVIEW_API_URL=http://localhost:3000` now addresses the
+gateway. Existing Home review requests use the same `/reviews` endpoint.
 
-Preserve the connection URLs' SSL parameters. Share credentials through a
-password manager, never Git or `EXPO_PUBLIC_` variables. Prefer individual
-database logins scoped to the review schema. The project owner should coordinate
-shared migration runs; developers create new migrations against their own local
-database, then commit them for a designated maintainer to apply with `npm run db:deploy`.
+Neon project `solitary-dew-62286571` has the hosted `development` branch
+(`br-holy-shape-a55yvoko`). The backend uses separate `users`, `restaurants`, and
+`reviews` schemas and service-scoped runtime credentials. Each collaborator must
+obtain development credentials privately and populate the backend `.env` using
+its `.env.example`; no database secret belongs in Expo. The root frontend
+workspace's Neon link remains on `production`, so do not copy its `.env.local`
+database credentials for development.
 
-Run `nvm use`, `npm ci`, `npm run db:generate`, and `npm run dev` in
-`messy-review-api`. Configure the local JWT settings as described in that
-repository's README. Docker is not required when running the API this way against
-Neon. The Compose API profile explicitly uses local PostgreSQL instead.
-Check `http://localhost:3000/ready` after startup. Everyone connected to the shared
-branch sees the same reviews; local Docker data is not copied to Neon.
+Each backend service owns its migration history. A designated maintainer applies
+shared migrations with `npm run db:deploy` from the backend root. Consult the
+backend README for endpoint examples, authentication, Docker networking, and
+production availability limits. Shared development data is visible to all
+collaborators connected to that branch.
 
 ## Jenkins CI
 
