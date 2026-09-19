@@ -1,6 +1,7 @@
 export type Review = {
   id: string;
   subjectId: string;
+  restaurantId: string | null;
   authorId: string;
   rating: number;
   body: string;
@@ -8,7 +9,10 @@ export type Review = {
   updatedAt: string;
 };
 
-export type NewReview = Pick<Review, 'subjectId' | 'rating' | 'body'>;
+export type NewReview = Pick<Review, 'rating' | 'body'> & (
+  | { restaurantId: string; subjectId?: string }
+  | { subjectId: string; restaurantId?: string }
+);
 
 export class ReviewApiError extends Error {
   constructor(public readonly status: number) {
