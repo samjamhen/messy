@@ -42,11 +42,12 @@ export async function fetchRestaurants(region: Region, search: string, signal?: 
     includedType: 'restaurant',
     strictTypeFiltering: true,
     pageSize: 20,
-    includedRegionCodes: ["CA"]
+    locationBias: { circle: { center: { latitude: region.latitude, longitude: region.longitude }, radius } },
   } : {
     includedTypes: ['restaurant'],
     maxResultCount: 20,
     rankPreference: 'DISTANCE',
+    locationRestriction: { circle: { center: { latitude: region.latitude, longitude: region.longitude }, radius } },
   };
 
   const response = await fetch(`https://places.googleapis.com/v1/places:${endpoint}`, {
