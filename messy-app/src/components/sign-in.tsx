@@ -30,13 +30,30 @@ export default function SignIn({ disabled = false }: { disabled?: boolean }) {
     try {
       if (Constants.appOwnership === 'expo') throw new Error('Sign-in needs a development build. You can still preview the review screen in Expo Go.');
       const result = await promptAsync();
-      if (result.type === 'cancel' || result.type === 'dismiss') return;
-      if (result.type !== 'success' || !result.params.code) throw new Error('Sign-in did not complete. Please try again.');
+      if (result.type === 'cancel') return;
+      if (result.type === 'dismiss') {
+        console.warn('[Auth0] Sign-in browser closed before returning a result.');
+        throw new Error(`Auth0 closed sign-in before it completed. Check that Allowed Callback URLs includes ${redirectUri}.`);
+      }
+      if (result.type === 'error') {
+        console.error('[Auth0] Sign-in request failed:', result.error?.message ?? 'Unknown browser authentication error');
+        throw new Error(result.error?.message ?? 'Auth0 could not start sign-in. Please try again.');
+      }
+      if (result.type !== 'success' || !result.params.code) {
+        const authError = result.type === 'success'
+          ? result.params.error_description ?? result.params.error
+          : undefined;
+        console.error('[Auth0] Sign-in returned without an authorization code:', authError ?? 'No details provided');
+        throw new Error(authError ?? 'Sign-in did not complete. Please try again.');
+      }
       const token = await AuthSession.exchangeCodeAsync({ clientId, code: result.params.code, redirectUri,
         extraParams: { code_verifier: request.codeVerifier! } }, discovery);
       if (!token.accessToken || !token.expiresIn) throw new Error('No API session was returned. Please try again.');
       await saveSession({ accessToken: token.accessToken, expiresAt: Date.now() + token.expiresIn * 1000 });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not sign in.'); }
+    } catch (cause) {
+      console.error('[Auth0] Sign-in failed:', cause instanceof Error ? cause.message : 'Unknown error');
+      setError(cause instanceof Error ? cause.message : 'Could not sign in.');
+    }
     finally { locked.current = false; setBusy(false); }
   }
   return <View style={{ gap: 8 }}>
