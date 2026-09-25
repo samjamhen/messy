@@ -4,6 +4,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { ThemedText } from './themed-text';
+import ProfileOnboarding from './profile-onboarding';
 import { getSession, loadSession, saveSession, subscribeSession } from '@/services/session';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -23,13 +24,19 @@ export default function SignIn({ disabled = false }: { disabled?: boolean }) {
     clientId: clientId ?? '', redirectUri, responseType: AuthSession.ResponseType.Code,
     scopes: ['openid', 'profile'], usePKCE: true, extraParams: { audience: audience ?? '', prompt: 'login' },
   }, discovery);
+  const [signupRequest, , signupAsync] = AuthSession.useAuthRequest({
+    clientId: clientId ?? '', redirectUri, responseType: AuthSession.ResponseType.Code,
+    scopes: ['openid', 'profile'], usePKCE: true,
+    extraParams: { audience: audience ?? '', prompt: 'login', screen_hint: 'signup' },
+  }, discovery);
   useEffect(() => { void loadSession(); }, []);
-  async function signIn() {
-    if (!request || !discovery || !clientId || locked.current) return;
+  async function signIn(signup = false) {
+    const activeRequest = signup ? signupRequest : request;
+    if (!activeRequest || !discovery || !clientId || locked.current) return;
     locked.current = true; setBusy(true); setError(null);
     try {
-      if (Constants.appOwnership === 'expo') throw new Error('Sign-in needs a development build. You can still preview the review screen in Expo Go.');
-      const result = await promptAsync();
+      if (Constants.appOwnership === 'expo') throw new Error('Please use the Messy development build to sign in or create an account.');
+      const result = await (signup ? signupAsync() : promptAsync());
       if (result.type === 'cancel') return;
       if (result.type === 'dismiss') {
         console.warn('[Auth0] Sign-in browser closed before returning a result.');
@@ -47,7 +54,7 @@ export default function SignIn({ disabled = false }: { disabled?: boolean }) {
         throw new Error(authError ?? 'Sign-in did not complete. Please try again.');
       }
       const token = await AuthSession.exchangeCodeAsync({ clientId, code: result.params.code, redirectUri,
-        extraParams: { code_verifier: request.codeVerifier! } }, discovery);
+        extraParams: { code_verifier: activeRequest.codeVerifier! } }, discovery);
       if (!token.accessToken || !token.expiresIn) throw new Error('No API session was returned. Please try again.');
       await saveSession({ accessToken: token.accessToken, expiresAt: Date.now() + token.expiresIn * 1000 });
     } catch (cause) {
@@ -57,13 +64,18 @@ export default function SignIn({ disabled = false }: { disabled?: boolean }) {
     finally { locked.current = false; setBusy(false); }
   }
   return <View style={{ gap: 8 }}>
-    {!configured ? <ThemedText type="small" themeColor="textSecondary">Sign-in is not available yet. You can choose a restaurant and draft your review.</ThemedText> :
+    {session ? <ProfileOnboarding key={session.accessToken} disabled={disabled} /> : null}
+    {!configured ? <ThemedText type="small" themeColor="textSecondary">Sign-in is temporarily unavailable. Please try again later.</ThemedText> :
       <Pressable accessibilityRole="button" disabled={disabled || busy || (!session && !request)} onPress={() => {
         if (session) void saveSession(null).catch(() => setError('Could not sign out. Please try again.'));
         else void signIn();
       }} style={{ minHeight: 44, justifyContent: 'center' }}>
-        {busy ? <ActivityIndicator accessibilityLabel="Signing in" /> : <ThemedText type="linkPrimary">{session ? 'Sign out' : 'Sign in with Auth0'}</ThemedText>}
+        {busy ? <ActivityIndicator accessibilityLabel="Signing in" /> : <ThemedText type="linkPrimary">{session ? 'Sign out' : 'Sign in'}</ThemedText>}
       </Pressable>}
+    {configured && !session ? <Pressable accessibilityRole="button" disabled={disabled || busy || !signupRequest}
+      onPress={() => void signIn(true)} style={{ minHeight: 48, borderRadius: 12, backgroundColor: '#BA432D', justifyContent: 'center', alignItems: 'center', opacity: busy ? 0.5 : 1 }}>
+      <ThemedText style={{ color: '#fff' }}>Create an account</ThemedText>
+    </Pressable> : null}
     {error ? <ThemedText accessibilityRole="alert" type="small">{error}</ThemedText> : null}
   </View>;
 }

@@ -45,6 +45,19 @@ async function request<T>(path: string, method = 'GET', token?: string, body?: u
 }
 
 export const reviewsApi = {
+  async authorNames(reviews: Review[]): Promise<Record<string, string>> {
+    const token = await getAccessToken();
+    const entries = await Promise.all([...new Set(reviews.map(review => review.authorId))].map(async id => {
+      try {
+        const profile = await request<{ displayName: string }>(`/users/${encodeURIComponent(id)}`, 'GET', token);
+        return [id, profile.displayName.trim() || 'Messy member'] as const;
+      } catch (error) {
+        if (error instanceof ReviewApiError && error.status === 401) throw error;
+        return [id, 'Messy member'] as const;
+      }
+    }));
+    return Object.fromEntries(entries);
+  },
   resolveRestaurant(googlePlaceId: string, accessToken: string) {
     return request<{ id: string; name: string; address: string }>('/restaurants/from-google', 'POST', accessToken, { googlePlaceId });
   },

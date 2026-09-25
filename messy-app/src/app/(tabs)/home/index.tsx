@@ -12,6 +12,7 @@ export default function HomeScreen() {
   const colors = useTheme();
   const session = useSyncExternalStore(subscribeSession, getSession, () => null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const latest = useRef(0);
@@ -19,10 +20,16 @@ export default function HomeScreen() {
     const request = ++latest.current;
     setLoading(true);
     setError(false);
-    if (!session) setReviews([]);
+    if (!session) { setReviews([]); setAuthorNames({}); }
     try {
       const result = await reviewsApi.list();
-      if (request === latest.current) setReviews(result.items);
+      if (request === latest.current) {
+        setReviews(result.items);
+        // Show reviews immediately; a profile lookup failure must not hide the feed.
+        void reviewsApi.authorNames(result.items).then(names => {
+          if (request === latest.current) setAuthorNames(names);
+        }).catch(() => {});
+      }
     } catch {
       if (request === latest.current) setError(true);
     } finally {
@@ -38,6 +45,7 @@ export default function HomeScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.background }}>
       <FlatList
         data={reviews}
+        extraData={authorNames}
         keyExtractor={review => review.id}
         contentContainerStyle={styles.content}
         refreshing={loading}
@@ -76,7 +84,7 @@ export default function HomeScreen() {
               <ThemedText accessibilityLabel={`${item.rating} out of 5 stars`}>{'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}</ThemedText>
             </View>
             <ThemedText>{item.body}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">{item.authorId} · {new Date(item.createdAt).toLocaleDateString()}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">{authorNames[item.authorId] ?? 'Messy member'} · {new Date(item.createdAt).toLocaleDateString()}</ThemedText>
           </View>
         )}
       />

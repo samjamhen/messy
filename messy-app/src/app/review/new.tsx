@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { router } from 'expo-router';
 import { randomUUID } from 'expo-crypto';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -11,9 +11,12 @@ import { useTheme } from '@/hooks/use-theme';
 import type { Restaurant } from '@/services/restaurants';
 import { ReviewApiError, reviewsApi, type Review } from '@/services/reviews';
 import { getAccessToken, SignInRequired } from '@/services/session';
+import { getProfileState, getServerProfileState, subscribeProfile } from '@/services/profile';
 
 export default function NewReviewScreen() {
   const colors = useTheme();
+  const profile = useSyncExternalStore(subscribeProfile, getProfileState, getServerProfileState);
+  const profileReady = profile.status === 'ready';
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [rating, setRating] = useState(0);
   const [body, setBody] = useState('');
@@ -35,7 +38,7 @@ export default function NewReviewScreen() {
     } else close();
   }
   async function submit() {
-    if (locked.current || !restaurant || !rating || !body.trim()) return;
+    if (locked.current || !restaurant || !rating || !body.trim() || !profileReady) return;
     locked.current = true; setSaving(true); setError(null);
     try {
       const token = await getAccessToken();
@@ -95,7 +98,7 @@ export default function NewReviewScreen() {
             <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'right' }}>{body.length} / 5000</ThemedText>
             <SignIn disabled={saving} />
             {error ? <ThemedText accessibilityRole="alert">{error}</ThemedText> : null}
-            <Pressable accessibilityRole="button" accessibilityLabel="Post review" accessibilityState={{ disabled: saving || !rating || !body.trim(), busy: saving }} disabled={saving || !rating || !body.trim()} onPress={() => void submit()} style={[styles.submit, (saving || !rating || !body.trim()) && { opacity: 0.5 }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Post review" accessibilityState={{ disabled: saving || !rating || !body.trim() || !profileReady, busy: saving }} disabled={saving || !rating || !body.trim() || !profileReady} onPress={() => void submit()} style={[styles.submit, (saving || !rating || !body.trim() || !profileReady) && { opacity: 0.5 }]}>
               {saving ? <ActivityIndicator color="#fff" accessibilityLabel="Posting review" /> : <Text style={styles.submitText}>Post review</Text>}
             </Pressable>
           </View>
