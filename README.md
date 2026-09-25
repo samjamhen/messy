@@ -111,8 +111,9 @@ const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
 The separate `messy-review-api` repository provides the review service. Start it using
 its README, then call `reviewsApi` from `messy-app/src/services/reviews.ts` to list,
-create, edit, or delete reviews. Writes require a signed access token from your
-authentication provider; user sign-in and review screens are not implemented yet.
+create, edit, or delete reviews. The gateway requires a signed access token.
+The **+** flow supports restaurant selection, rating, written reviews, and Auth0
+sign-in. See [review flow setup](REVIEW_FLOW.md) for provider configuration and migrations.
 For Android Emulator, use `http://10.0.2.2:3000` as the review API URL. For a physical
 device, use the API computer's LAN IP; for deployment, use the hosted HTTPS API URL.
 Restart Metro after changing the environment file. PostgreSQL connection strings

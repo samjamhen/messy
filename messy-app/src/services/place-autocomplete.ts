@@ -10,13 +10,14 @@ function headers() {
   return { 'Content-Type': 'application/json', 'X-Goog-Api-Key': API_KEY };
 }
 
-export async function fetchPlaceSuggestions(input: string, region: Region, sessionToken: string, signal: AbortSignal): Promise<PlaceSuggestion[]> {
+export async function fetchPlaceSuggestions(input: string, region: Region, sessionToken: string, signal: AbortSignal, restaurantsOnly = false): Promise<PlaceSuggestion[]> {
   const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
     headers: headers(),
     signal,
     body: JSON.stringify({
       input,
+      ...(restaurantsOnly ? { includedPrimaryTypes: ['restaurant'] } : {}),
       sessionToken,
       locationBias: { circle: {
         center: { latitude: region.latitude, longitude: region.longitude },

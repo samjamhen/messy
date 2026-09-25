@@ -7,9 +7,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { fetchPlaceSuggestions, fetchSelectedPlace, type PlaceSuggestion } from '@/services/place-autocomplete';
 import type { Restaurant } from '@/services/restaurants';
 
-type Props = { getRegion: () => Region; onSelect: (place: Restaurant) => void; onSearch: (query: string) => void };
+type Props = { getRegion: () => Region; onSelect: (place: Restaurant) => void; onSearch?: (query: string) => void; restaurantsOnly?: boolean };
 
-export default function PlaceAutocomplete({ getRegion, onSelect, onSearch }: Props) {
+export default function PlaceAutocomplete({ getRegion, onSelect, onSearch, restaurantsOnly = false }: Props) {
   const colors = useTheme();
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState(false);
@@ -30,7 +30,7 @@ export default function PlaceAutocomplete({ getRegion, onSelect, onSearch }: Pro
     const timeout = setTimeout(async () => {
       setLoading(true);
       try {
-        const results = await fetchPlaceSuggestions(query.trim(), getRegion(), token, controller.signal);
+        const results = await fetchPlaceSuggestions(query.trim(), getRegion(), token, controller.signal, restaurantsOnly);
         if (!controller.signal.aborted) {
           setSuggestions(results);
           setSearched(true);
@@ -42,7 +42,7 @@ export default function PlaceAutocomplete({ getRegion, onSelect, onSearch }: Pro
       }
     }, 300);
     return () => { clearTimeout(timeout); controller.abort(); };
-  }, [query, editing, getRegion]);
+  }, [query, editing, getRegion, restaurantsOnly]);
 
   useEffect(() => () => { request.current?.abort(); }, []);
 
@@ -86,6 +86,7 @@ export default function PlaceAutocomplete({ getRegion, onSelect, onSearch }: Pro
   }
 
   function submitSearch() {
+    if (!onSearch) return;
     request.current?.abort();
     session.current = null;
     setEditing(false);
@@ -102,7 +103,7 @@ export default function PlaceAutocomplete({ getRegion, onSelect, onSearch }: Pro
       <View style={[styles.row, { backgroundColor: colors.backgroundElement }]}>
         <TextInput
           accessibilityLabel="Search places"
-          placeholder="Search restaurants, places or addresses"
+          placeholder={restaurantsOnly ? 'Search for a restaurant' : 'Search restaurants, places or addresses'}
           placeholderTextColor={colors.textSecondary}
           autoCorrect={false}
           returnKeyType="search"
